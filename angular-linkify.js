@@ -30,7 +30,7 @@ angular.module('linkify')
           url = url.replace(/^/, 'https://twitter.com/');
           break;
         case 'twitterHashtag':
-          url = url.replace(/^/, 'https://twitter.com/search?q=%23');
+          url = url.replace(/^#/, 'https://twitter.com/search?q=%23');
           break;
         case 'url':
           if (!regexes.protocol.test(url)) {
@@ -49,7 +49,8 @@ angular.module('linkify')
     };
   }
 
-  return function (_str, type) {
+  return function (_str, types) {
+    types = types.split(',');
     var _text = _str;
 
     if (!_str) {
@@ -59,12 +60,12 @@ angular.module('linkify')
     _text = _str.replace(regexes.url, generate_link('url'));
     _text = _text.replace(regexes.email, generate_link('email'));
 
-    if (type === 'twitter'){
+    if (types.indexOf('twitter') >= 0){
       _text = _text.replace(regexes.twitterUser, generate_link('twitterUser'));
       _text = _text.replace(regexes.twitterHashtag, generate_link('twitterHashtag'));
     }
 
-    if (type === 'github') {
+    if (types.indexOf('github') >= 0) {
       _text = _text.replace(regexes.github, generate_link('github'));
     }
 
