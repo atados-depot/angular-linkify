@@ -1,96 +1,99 @@
 angular.module('linkify', []);
 
 angular.module('linkify')
-  .filter('linkify', function () {
-      'use strict';
-      // add protocol for url without specified protocol
-      function add_protocol (url) {
-        if(/(([\w]+:)?\/\/)/ig.test(url) === false) {
-            url = 'http://' + url;
-        }
-        return url;
+.filter('linkify', function () {
+  'use strict';
+
+  var regexes = {
+    url: /(?:https?\:\/\/|www\.)+(?![^\s]*?")([\w.,@?!^=%&amp;:\/~+#-]*[\w@?!^=%&amp;\/~+#-])?/ig,
+    email: /[\w-.!#$%&'*+=/=?^_`{|}~]+[+]?[\w-.!#$%&'*+=/=?^_`{|}~]+@[\w-.!#$%&'*+=/=?^_`{|}~]+\.[a-zA-Z]{2,6}/ig,
+    github: /(([\w]+:)?\/\/)/ig,
+    protocol: /(([\w]+:)?\/\/)/ig,
+    twitterUser: /\B\@([\w\-]+)/ig,
+    twitterHashtag: /#([\u00C0-\u1FFF\w]+)/ig
+  };
+
+  function generate_link (type) {
+    return function (url) {
+      var wrap = document.createElement('div');
+      var anch = document.createElement('a');
+      var text = url;
+
+      switch (type) {
+        case 'email':
+          url = url.replace(/^/, 'mailto:');
+          break;
+        case 'twitterUser':
+          url = url.replace(/^/, 'https://twitter.com/');
+          break;
+        case 'twitterHashtag':
+          url = url.replace(/^/, 'https://twitter.com/search?q=%23');
+          break;
+        case 'url':
+          if (!regexes.protocol.test(url)) {
+            url = url.replace(/^/, 'http://');
+          }
+          break;
+        default:
+          break;
       }
 
-      // for email link, add 'mailto:'
-      function link_email (email) {
-          var wrap = document.createElement('div');
-          var anch = document.createElement('a');
-          anch.href = 'mailto:' + email;
-          anch.target = '_blank';
-          anch.innerHTML = email;
-          wrap.appendChild(anch);
-          return wrap.innerHTML;
-      }
+      anch.target = '_blank';
+      anch.href = url;
+      anch.innerHTML = text;
+      wrap.appendChild(anch);
+      return wrap.innerHTML;
+    };
+  }
 
-      function linkify (_str, type) {
-        if (!_str) {
-          return;
-        }
+  function linkify (_str, type) {
+    var _text = _str;
 
-        var _text = _str.replace( /(?:https?\:\/\/|www\.)+(?![^\s]*?")([\w.,@?!^=%&amp;:\/~+#-]*[\w@?!^=%&amp;\/~+#-])?/ig, function(url) {
-          var wrap = document.createElement('div');
-          var anch = document.createElement('a');
-          anch.href = add_protocol(url);
-          anch.target = "_blank";
-          anch.innerHTML = url;
-          wrap.appendChild(anch);
-          return wrap.innerHTML;
-        });
-
-        // replace email url
-        if(/([\w-.!#$%&'*+=/=?^_`{|}~]+)@((?:\w+\.)+)(?:[a-zA-Z]{2,4})/ig.test(_str)) {
-            _text = link_email(_str);
-        }
-        
-        // bugfix
-        if (!_text) {
-          return '';
-        }
-
-        // Twitter
-        if (type === 'twitter') {
-          _text = _text.replace(/(|\s)*@([\u00C0-\u1FFF\w]+)/g, '$1<a href="https://twitter.com/$2" target="_blank">@$2</a>');
-          _text = _text.replace(/(^|\s)*#([\u00C0-\u1FFF\w]+)/g, '$1<a href="https://twitter.com/search?q=%23$2" target="_blank">#$2</a>');
-        }
-
-
-        // Github
-        if (type === 'github') {
-          _text = _text.replace(/(|\s)*@(\w+)/g, '$1<a href="https://github.com/$2" target="_blank">@$2</a>');
-        }
-
-        return _text;
-      }
-
-      //
-      return function (text, type) {
-        return linkify(text, type);
-      };
-  })
-  .factory('linkify', ['$filter', function ($filter) {
-    'use strict';
-
-    function _linkifyAsType (type) {
-      return function (str) {(type, str);
-        return $filter('linkify')(str, type);
-      };
+    if (!_str) {
+      return;
     }
 
-    return {
-      twitter: _linkifyAsType('twitter'),
-      github: _linkifyAsType('github'),
-      normal: _linkifyAsType()
-    };
-  }])
-  .directive('linkify', ['$filter', '$timeout', 'linkify', function ($filter, $timeout, linkify) {
-    'use strict';
+    _text = _str.replace(regexes.url, generate_link('url'));
+    _text = _str.replace(regexes.email, generate_link('email'));
 
-    return {
-      restrict: 'A',
-      link: function (scope, element, attrs) {
-        var type = attrs.linkify || 'normal';
-        $timeout(function () { element.html(linkify[type](element.html())); });
-      }
+    if (type === 'twitter'){
+      _text = _str.replace(regexes.twitterUser, generate_link('twitterUser'));
+      _text = _text.replace(regexes.twitterHashtag, generate_link('twitterHashtag'));
+    }
+
+    if (type === 'github') {
+      _text = _str.replace(regexes.github, '$1<a href="https://github.com/$2" target="_blank">@$2</a>');
+    }
+
+    return _text;
+  }
+
+  return linkify;
+})
+.factory('linkify', ['$filter', function ($filter) {
+  'use strict';
+
+  function _linkifyAsType (type) {
+    return function (str) {(type, str);
+      return $filter('linkify')(str, type);
     };
-  }]);
+  }
+
+  return {
+    twitter: _linkifyAsType('twitter'),
+    github: _linkifyAsType('github'),
+    normal: _linkifyAsType()
+  };
+}])
+.directive('linkify', ['$filter', '$timeout', 'linkify', function ($filter, $timeout, linkify) {
+  'use strict';
+
+  return {
+    restrict: 'A',
+    link: function (scope, element, attrs) {
+      var type = attrs.linkify || 'normal';
+      $timeout(function () { element.html(linkify[type](element.html())); });
+    }
+  };
+}]);
 
