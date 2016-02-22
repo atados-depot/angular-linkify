@@ -23,6 +23,9 @@ angular.module('linkify')
         case 'email':
           url = url.replace(/^/, 'mailto:');
           break;
+        case 'github':
+          url = url.replace(/^/, 'https://github.com/');
+          break;
         case 'twitterUser':
           url = url.replace(/^/, 'https://twitter.com/');
           break;
@@ -46,7 +49,7 @@ angular.module('linkify')
     };
   }
 
-  function linkify (_str, type) {
+  return function (_str, type) {
     var _text = _str;
 
     if (!_str) {
@@ -54,27 +57,25 @@ angular.module('linkify')
     }
 
     _text = _str.replace(regexes.url, generate_link('url'));
-    _text = _str.replace(regexes.email, generate_link('email'));
+    _text = _text.replace(regexes.email, generate_link('email'));
 
     if (type === 'twitter'){
-      _text = _str.replace(regexes.twitterUser, generate_link('twitterUser'));
+      _text = _text.replace(regexes.twitterUser, generate_link('twitterUser'));
       _text = _text.replace(regexes.twitterHashtag, generate_link('twitterHashtag'));
     }
 
     if (type === 'github') {
-      _text = _str.replace(regexes.github, '$1<a href="https://github.com/$2" target="_blank">@$2</a>');
+      _text = _text.replace(regexes.github, generate_link('github'));
     }
 
     return _text;
-  }
-
-  return linkify;
+  };
 })
 .factory('linkify', ['$filter', function ($filter) {
   'use strict';
 
   function _linkifyAsType (type) {
-    return function (str) {(type, str);
+    return function (str) {
       return $filter('linkify')(str, type);
     };
   }
@@ -92,8 +93,9 @@ angular.module('linkify')
     restrict: 'A',
     link: function (scope, element, attrs) {
       var type = attrs.linkify || 'normal';
-      $timeout(function () { element.html(linkify[type](element.html())); });
+      $timeout(function () {
+        element.html(linkify[type](element.html()));
+      });
     }
   };
 }]);
-
